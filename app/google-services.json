@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "972648879214",
+    "project_id": "shsesrfamily",
+    "storage_bucket": "shsesrfamily.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:972648879214:android:fbfcab0b75d51e3c0d427f",
+        "android_client_info": {
+          "package_name": "com.shsesrfamily"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDds_s8MpDXHgzbFbnDHLyJsMmtYRdCY04"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
