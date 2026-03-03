@@ -16,7 +16,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Family_WeeklyCalender">
         <activity
-            android:name=".MainActivity"
+            android:name=".__MainActivity"
             android:exported="true"
             android:label="@string/app_name"
             android:theme="@style/Theme.Family_WeeklyCalender">

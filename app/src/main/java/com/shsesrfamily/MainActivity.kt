@@ -12,6 +12,9 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
@@ -24,6 +27,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -77,7 +81,7 @@ class MainActivity : ComponentActivity() {
                         ScheduleDialog(
                             schedule = null,
                             initialDay = selectedDay,
-                            initialTime = selectedTime,
+                            initialStartTime = selectedTime,
                             onDismiss = { showAddDialog = false },
                             onSave = { schedule ->
                                 viewModel.addSchedule(schedule)
@@ -90,6 +94,9 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
+
+
+
 
 @Composable
 fun WeeklyScheduleScreen(viewModel: ScheduleViewModel, modifier: Modifier = Modifier , onAddSchedule: (String, String) -> Unit) {
@@ -158,15 +165,16 @@ fun WeeklyScheduleScreen(viewModel: ScheduleViewModel, modifier: Modifier = Modi
                     // 각 요일별 셀
                     daysOfWeek.forEach { day ->
                         val cellSchedules = schedules.filter { 
-                            it.day == day && it.time == time 
+                            it.day == day && (it.startTime == time || 
+                                             (isTimeBetween(time, it.startTime, it.endTime)))
                         }
                         
-                        TimeCell(
+                        DayTimeCell(
                             day = day,
                             time = time,
                             schedules = cellSchedules,
                             onAddClick = { 
-                                onAddSchedule(day,time)
+                                onAddSchedule(day, time)
                             },
                             onScheduleClick = { schedule ->
                                 selectedSchedule = schedule
@@ -174,7 +182,7 @@ fun WeeklyScheduleScreen(viewModel: ScheduleViewModel, modifier: Modifier = Modi
                             },
                             onDragEnd = { schedule, newDay, newTime ->
                                 // 드래그 앤 드롭으로 일정 이동 처리
-                                val updatedSchedule = schedule.copy(day = newDay, time = newTime)
+                                val updatedSchedule = schedule.copy(day = newDay, startTime = newTime)
                                 viewModel.updateSchedule(updatedSchedule)
                             }
                         )
@@ -184,24 +192,12 @@ fun WeeklyScheduleScreen(viewModel: ScheduleViewModel, modifier: Modifier = Modi
         }
     }
     
-    // // 일정 추가 다이얼로그
-    // if (showAddDialog) {
-    //     ScheduleDialog(
-    //         schedule = null,
-    //         onDismiss = { showAddDialog = false },
-    //         onSave = { schedule ->
-    //             viewModel.addSchedule(schedule)
-    //             showAddDialog = false
-    //         }
-    //     )
-    // }
-    
     // 일정 수정 다이얼로그
     if (showEditDialog && selectedSchedule != null) {
         ScheduleDialog(
             schedule = selectedSchedule,
             initialDay = selectedSchedule?.day ?: "월",
-            initialTime = selectedSchedule?.time ?: "9:00",
+            initialStartTime = selectedSchedule?.startTime ?: "9:00",
             onDismiss = { 
                 showEditDialog = false
                 selectedSchedule = null
@@ -220,9 +216,22 @@ fun WeeklyScheduleScreen(viewModel: ScheduleViewModel, modifier: Modifier = Modi
     }
 }
 
-// TimeCell 컴포넌트 수정
+
+// 시간이 시작 시간과 종료 시간 사이에 있는지 확인하는 함수
+fun isTimeBetween(time: String, startTime: String, endTime: String): Boolean {
+    if (startTime.isBlank() || endTime.isBlank()) return false
+    
+    val currentMinutes = timeToMinutes(time)
+    val startMinutes = timeToMinutes(startTime)
+    val endMinutes = timeToMinutes(endTime)
+    
+    return currentMinutes in startMinutes until endMinutes
+}
+
+
+// 새로운 DayTimeCell 컴포넌트 (요일과 시간별 셀)
 @Composable
-fun RowScope.TimeCell(
+fun RowScope.DayTimeCell(
     day: String,
     time: String,
     schedules: List<Schedule>,
@@ -235,18 +244,17 @@ fun RowScope.TimeCell(
             .weight(1f)
             .height(60.dp)
             .border(0.5.dp, Color.LightGray)
-            // 항상 클릭 가능하도록 수정 (enabled = true로 변경)
-            .clickable { onAddClick() }
+            .clickable(enabled = schedules.isEmpty()) { onAddClick() }
     ) {
         if (schedules.isNotEmpty()) {
-            // 스크롤 가능한 리스트로 변경
+            // 여러 개의 TimeCell을 표시
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(1.dp)
             ) {
                 items(schedules) { schedule ->
-                    ScheduleItem(
+                    TimeCell(
                         schedule = schedule,
                         onClick = { onScheduleClick(schedule) },
                         onDragEnd = { newDay, newTime -> onDragEnd(schedule, newDay, newTime) }
@@ -262,13 +270,23 @@ fun RowScope.TimeCell(
                     }
                 }
             }
+        } else {
+            // 빈 셀을 클릭 가능하게 함
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clickable { onAddClick() }
+            )
         }
     }
 }
 
-// ScheduleItem 컴포넌트도 수정
+
+
+
+// 개별 TimeCell 컴포넌트 (각 일정 항목)
 @Composable
-fun ScheduleItem(
+fun TimeCell(
     schedule: Schedule,
     onClick: () -> Unit,
     onDragEnd: (String, String) -> Unit
@@ -290,7 +308,7 @@ fun ScheduleItem(
             .pointerInput(Unit) {
                 detectDragGestures(
                     onDragEnd = {
-                        onDragEnd(schedule.day, schedule.time)
+                        onDragEnd(schedule.day, schedule.startTime)
                         offsetX = 0f
                         offsetY = 0f
                     },
@@ -312,7 +330,7 @@ fun ScheduleItem(
                 overflow = TextOverflow.Ellipsis
             )
             Text(
-                text = schedule.person,
+                text = "${schedule.startTime} - ${schedule.endTime}",
                 fontSize = 8.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -321,11 +339,14 @@ fun ScheduleItem(
     }
 }
 
+
+
+
 @Composable
 fun ScheduleDialog(
     schedule: Schedule?,
     initialDay: String = "월",
-    initialTime: String = "9:00",
+    initialStartTime: String = "9:00",
     onDismiss: () -> Unit,
     onSave: (Schedule) -> Unit,
     onDelete: ((Schedule) -> Unit)? = null
@@ -333,16 +354,18 @@ fun ScheduleDialog(
     val isNewSchedule = schedule == null
     val title = if (isNewSchedule) "일정 추가" else "일정 수정"
     
-    var person by remember { mutableStateOf(schedule?.person ?: "") }
     var subject by remember { mutableStateOf(schedule?.subject ?: "") }
     var day by remember { mutableStateOf(schedule?.day ?: initialDay) }
-    var time by remember { mutableStateOf(schedule?.time ?: initialTime) }
-    var duration by remember { mutableStateOf(schedule?.duration?.toString() ?: "30") }
+    var startTime by remember { mutableStateOf(schedule?.startTime ?: initialStartTime) }
+    var endTime by remember { mutableStateOf(schedule?.endTime ?: calculateEndTime(initialStartTime, 30)) }
     var color by remember { mutableStateOf(schedule?.color ?: "#FF1976D2") }
     
     val daysOfWeek = listOf("월", "화", "수", "목", "금", "토", "일")
-    val hours = (9..24).map { it.toString().padStart(2, '0') }
-    val minutes = listOf("00", "30")
+    
+    // 30분 단위로 시간 슬롯 생성 (9:00 ~ 24:00)
+    val timeSlots = (9..24).flatMap { hour -> 
+        if (hour == 24) listOf("24:00") else listOf("$hour:00", "$hour:30") 
+    }
     
     Dialog(onDismissRequest = onDismiss) {
         Surface(
@@ -356,20 +379,12 @@ fun ScheduleDialog(
                 modifier = Modifier
                     .padding(16.dp)
                     .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()) // 스크롤 가능하도록 추가
             ) {
                 Text(
                     text = title,
                     style = MaterialTheme.typography.headlineSmall,
                     modifier = Modifier.padding(bottom = 16.dp)
-                )
-                
-                OutlinedTextField(
-                    value = person,
-                    onValueChange = { person = it },
-                    label = { Text("이름") },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp)
                 )
                 
                 OutlinedTextField(
@@ -401,72 +416,67 @@ fun ScheduleDialog(
                     }
                 }
                 
-                // 시간 선택
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    // 시간 선택 드롭다운
-                    Box(modifier = Modifier.weight(1f)) {
-                        var expanded by remember { mutableStateOf(false) }
-                        val currentHour = time.split(":")[0]
-                        
-                        OutlinedButton(
-                            onClick = { expanded = true },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("시간: $currentHour 시")
-                        }
-                        
-                        DropdownMenu(
-                            expanded = expanded,
-                            onDismissRequest = { expanded = false },
-                            modifier = Modifier.fillMaxWidth(0.5f)
-                        ) {
-                            hours.forEach { hour ->
-                                DropdownMenuItem(
-                                    text = { Text("$hour 시") },
-                                    onClick = {
-                                        val parts = time.split(":")
-                                        time = "$hour:${parts[1]}"
-                                        expanded = false
-                                    }
-                                )
-                            }
-                        }
+                // 시작 시간 선택
+                Text("시작 시간", modifier = Modifier.padding(top = 8.dp))
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    var expanded by remember { mutableStateOf(false) }
+                    
+                    OutlinedButton(
+                        onClick = { expanded = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("시작 시간: $startTime")
                     }
                     
-                    Spacer(modifier = Modifier.width(8.dp))
-                    
-                    // 분 선택 드롭다운
-                    Box(modifier = Modifier.weight(1f)) {
-                        var expanded by remember { mutableStateOf(false) }
-                        val currentMinute = time.split(":")[1]
-                        
-                        OutlinedButton(
-                            onClick = { expanded = true },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("분: $currentMinute 분")
-                        }
-                        
-                        DropdownMenu(
-                            expanded = expanded,
-                            onDismissRequest = { expanded = false },
-                            modifier = Modifier.fillMaxWidth(0.5f)
-                        ) {
-                            minutes.forEach { minute ->
-                                DropdownMenuItem(
-                                    text = { Text("$minute 분") },
-                                    onClick = {
-                                        val parts = time.split(":")
-                                        time = "${parts[0]}:$minute"
-                                        expanded = false
+                    DropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = { expanded = false },
+                        modifier = Modifier.fillMaxWidth(0.8f)
+                    ) {
+                        timeSlots.forEach { time ->
+                            DropdownMenuItem(
+                                text = { Text(time) },
+                                onClick = {
+                                    startTime = time
+                                    // 종료 시간이 시작 시간보다 이전이면 자동으로 30분 뒤로 설정
+                                    if (!isValidTimeRange(startTime, endTime)) {
+                                        endTime = calculateEndTime(startTime, 30)
                                     }
-                                )
-                            }
+                                    expanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+                
+                // 종료 시간 선택
+                Text("종료 시간", modifier = Modifier.padding(top = 8.dp))
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    var expanded by remember { mutableStateOf(false) }
+                    
+                    OutlinedButton(
+                        onClick = { expanded = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("종료 시간: $endTime")
+                    }
+                    
+                    DropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = { expanded = false },
+                        modifier = Modifier.fillMaxWidth(0.8f)
+                    ) {
+                        // 시작 시간 이후의 시간만 표시
+                        timeSlots.filter { time ->
+                            isTimeAfter(time, startTime)
+                        }.forEach { time ->
+                            DropdownMenuItem(
+                                text = { Text(time) },
+                                onClick = {
+                                    endTime = time
+                                    expanded = false
+                                }
+                            )
                         }
                     }
                 }
@@ -522,15 +532,14 @@ fun ScheduleDialog(
                             val newSchedule = Schedule(
                                 id = schedule?.id ?: UUID.randomUUID().toString(),
                                 day = day,
-                                time = time,
-                                person = person,
+                                startTime = startTime,
+                                endTime = endTime,
                                 subject = subject,
-                                duration = duration.toIntOrNull() ?: 30,
                                 color = color
                             )
                             onSave(newSchedule)
                         },
-                        enabled = person.isNotBlank() && subject.isNotBlank()
+                        enabled = subject.isNotBlank() && isValidTimeRange(startTime, endTime)
                     ) {
                         Icon(Icons.Default.Edit, contentDescription = "저장")
                         Spacer(modifier = Modifier.width(4.dp))
@@ -540,4 +549,38 @@ fun ScheduleDialog(
             }
         }
     }
+}
+
+// 시작 시간에 분(minutes)을 더해서 종료 시간을 계산하는 함수
+fun calculateEndTime(startTime: String, durationMinutes: Int): String {
+    val parts = startTime.split(":")
+    val hour = parts.getOrNull(0)?.toIntOrNull() ?: 9
+    val minute = parts.getOrNull(1)?.toIntOrNull() ?: 0
+    
+    val totalMinutes = hour * 60 + minute + durationMinutes
+    val newHour = (totalMinutes / 60).coerceAtMost(24)
+    val newMinute = if (totalMinutes % 60 == 0) 0 else 30 // 30분 단위로 조정
+    
+    return "${newHour.toString().padStart(2, '0')}:${newMinute.toString().padStart(2, '0')}"
+}
+
+// 시작 시간이 종료 시간보다 이전인지 확인하는 함수
+fun isValidTimeRange(startTime: String, endTime: String): Boolean {
+    if (startTime.isBlank() || endTime.isBlank()) return false
+    return timeToMinutes(startTime) < timeToMinutes(endTime)
+}
+
+// 첫 번째 시간이 두 번째 시간보다 이후인지 확인하는 함수
+fun isTimeAfter(time1: String, time2: String): Boolean {
+    if (time1.isBlank() || time2.isBlank()) return false
+    return timeToMinutes(time1) > timeToMinutes(time2)
+}
+
+// 시간 문자열을 분 단위로 변환하는 함수
+fun timeToMinutes(timeStr: String): Int {
+    if (timeStr.isBlank()) return 0
+    val parts = timeStr.split(":")
+    val hour = parts.getOrNull(0)?.toIntOrNull() ?: 0
+    val minute = parts.getOrNull(1)?.toIntOrNull() ?: 0
+    return hour * 60 + minute
 }
