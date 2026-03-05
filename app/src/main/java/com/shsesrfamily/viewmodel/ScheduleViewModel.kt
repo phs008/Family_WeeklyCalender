@@ -1,6 +1,7 @@
 package com.shsesrfamily.viewmodel
 
 import androidx.lifecycle.ViewModel
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.shsesrfamily.model.Schedule
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -9,18 +10,33 @@ import kotlinx.coroutines.flow.StateFlow
 class ScheduleViewModel : ViewModel() {
 
     private val db = FirebaseFirestore.getInstance()
+    private val auth = FirebaseAuth.getInstance()
     private val _schedules = MutableStateFlow<List<Schedule>>(emptyList())
     val schedules: StateFlow<List<Schedule>> = _schedules
 
     init {
-        fetchSchedules()
+        signInAnonymously()
+    }
+
+    private fun signInAnonymously(){
+        if(auth.currentUser == null){
+            auth.signInAnonymously()
+                .addOnSuccessListener {
+                    fetchSchedules()
+                }
+                .addOnFailureListener {
+                    android.util.Log.e("AuthError", "익명 로그인 실패")
+                }
+        }else{
+            fetchSchedules()
+        }
     }
 
     private fun fetchSchedules() {
         db.collection("schedules")
             .addSnapshotListener { snapshot, e ->
                 if (e != null) {
-                    // Handle error
+                    android.util.Log.e("FirestoreError", "데이터 가져오기 실패", e)
                     return@addSnapshotListener
                 }
 
@@ -39,7 +55,7 @@ class ScheduleViewModel : ViewModel() {
                 // Handle success
             }
             .addOnFailureListener {
-                // Handle failure
+                android.util.Log.e("FirestoreError", "추가 실패", it)
             }
     }
 
@@ -50,7 +66,7 @@ class ScheduleViewModel : ViewModel() {
                 // Handle success
             }
             .addOnFailureListener {
-                // Handle failure
+                android.util.Log.e("FirestoreError", "수정 실패", it)
             }
     }
 
@@ -61,7 +77,7 @@ class ScheduleViewModel : ViewModel() {
                 // Handle success
             }
             .addOnFailureListener {
-                // Handle failure
+                android.util.Log.e("FirestoreError", "삭제 실패", it)
             }
     }
 }
