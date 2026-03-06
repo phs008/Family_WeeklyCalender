@@ -1,6 +1,7 @@
 package com.shsesrfamily
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -27,6 +28,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -46,10 +48,18 @@ class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        val sharedPref = getSharedPreferences("app_settings", Context.MODE_PRIVATE)
+        
         enableEdgeToEdge()
         setContent {
-            var isDarkMode by remember { mutableStateOf(false) }
-            var isAxisSwapped by remember { mutableStateOf(false) }
+            val context = LocalContext.current
+            var isDarkMode by remember { 
+                mutableStateOf(sharedPref.getBoolean("is_dark_mode", false)) 
+            }
+            var isAxisSwapped by remember { 
+                mutableStateOf(sharedPref.getBoolean("is_axis_swapped", false)) 
+            }
 
             Family_WeeklyCalenderTheme(darkTheme = isDarkMode) {
                 var showAddDialog by remember { mutableStateOf(false) }
@@ -61,13 +71,19 @@ class MainActivity : ComponentActivity() {
                         TopAppBar(
                             title = { Text("주간 일정표") },
                             actions = {
-                                IconButton(onClick = { isAxisSwapped = !isAxisSwapped }) {
+                                IconButton(onClick = { 
+                                    isAxisSwapped = !isAxisSwapped 
+                                    sharedPref.edit().putBoolean("is_axis_swapped", isAxisSwapped).apply()
+                                }) {
                                     Icon(
                                         imageVector = Icons.Default.Refresh,
                                         contentDescription = "축 전환"
                                     )
                                 }
-                                IconButton(onClick = { isDarkMode = !isDarkMode }) {
+                                IconButton(onClick = { 
+                                    isDarkMode = !isDarkMode 
+                                    sharedPref.edit().putBoolean("is_dark_mode", isDarkMode).apply()
+                                }) {
                                     Icon(
                                         imageVector = Icons.Default.Settings,
                                         contentDescription = "테마 전환"

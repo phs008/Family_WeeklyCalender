@@ -42,3 +42,16 @@
 *   드래그 앤 드롭 기능:
     * detectDragGestures를 사용하여 일정 항목 이동 기능 구현
     * 위치 변경 시 ViewModel을 통해 데이터 업데이트
+
+## 단계 4: 버그 수정 및 앱 설정 최적화 (2026-03-03)
+
+*   **Firestore 권한 문제 해결**: 
+    * `PERMISSION_DENIED` 오류 해결을 위해 Firestore 보안 규칙 가이드 제공.
+    * `ScheduleViewModel` 내 익명 로그인 체크 로직 강화.
+*   **레이아웃 겹침 현상 수정**:
+    * '축 전환' 기능(`HorizontalScheduleScreen`) 사용 시, 동일 시간대의 일정이 겹쳐 보이는 문제 해결.
+    * `calculateSchedulePositions` 로직을 가로 모드에도 적용하여 겹치는 일정을 층별로 분리 표시.
+*   **앱 이름 변경**:
+    * 앱 표시 이름을 "우리 가족 주간 일정"으로 변경 (`strings.xml`).
+*   **앱 아이콘 설정 가이드**:
+    * Image Asset Studio를 이용한 적응형 아이콘(Adaptive Icon) 추가 방법 정립.
