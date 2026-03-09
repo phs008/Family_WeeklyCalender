@@ -10,7 +10,6 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
@@ -27,7 +26,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -230,7 +228,8 @@ fun WeeklyScheduleScreen(
             initialStartTime = selectedSchedule?.startTime ?: "9:00",
             onDismiss = { showEditDialog = false; selectedSchedule = null },
             onSave = { viewModel.updateSchedule(it); showEditDialog = false; selectedSchedule = null },
-            onDelete = { viewModel.deleteSchedule(it); showEditDialog = false; selectedSchedule = null }
+            onDelete = { viewModel.deleteSchedule(it); showEditDialog = false; selectedSchedule = null },
+            onCopy = { viewModel.addSchedule(it); showEditDialog = false; selectedSchedule = null }
         )
     }
 }
@@ -353,7 +352,8 @@ fun HorizontalScheduleScreen(
             initialStartTime = selectedSchedule?.startTime ?: "9:00",
             onDismiss = { showEditDialog = false; selectedSchedule = null },
             onSave = { viewModel.updateSchedule(it); showEditDialog = false; selectedSchedule = null },
-            onDelete = { viewModel.deleteSchedule(it); showEditDialog = false; selectedSchedule = null }
+            onDelete = { viewModel.deleteSchedule(it); showEditDialog = false; selectedSchedule = null },
+            onCopy = { viewModel.addSchedule(it); showEditDialog = false; selectedSchedule = null }
         )
     }
 }
@@ -492,7 +492,8 @@ fun ScheduleDialog(
     initialStartTime: String = "9:00",
     onDismiss: () -> Unit,
     onSave: (Schedule) -> Unit,
-    onDelete: ((Schedule) -> Unit)? = null
+    onDelete: ((Schedule) -> Unit)? = null,
+    onCopy: ((Schedule) -> Unit)? = null
 ) {
     val isNewSchedule = schedule == null
     val title = if (isNewSchedule) "일정 추가" else "일정 수정"
@@ -537,12 +538,35 @@ fun ScheduleDialog(
                         }
                     }
                 }
-                Row(modifier = Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                    TextButton(onClick = onDismiss) { Text("취소") }
-                    if (!isNewSchedule && onDelete != null) {
-                        TextButton(onClick = { schedule?.let { onDelete(it) } }) { Icon(Icons.Default.Delete, contentDescription = "삭제"); Spacer(modifier = Modifier.width(4.dp)); Text("삭제") }
+                Row(modifier = Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = onDismiss, modifier = Modifier.weight(1f)) { Text("취소") }
+                    
+                    if (!isNewSchedule) {
+                        if (onDelete != null) {
+                            IconButton(onClick = { schedule?.let { onDelete(it) } }) {
+                                Icon(Icons.Default.Delete, contentDescription = "삭제", tint = MaterialTheme.colorScheme.error)
+                            }
+                        }
+                        if (onCopy != null) {
+                            IconButton(onClick = {
+                                val copiedSchedule = Schedule(
+                                    id = UUID.randomUUID().toString(),
+                                    day = day,
+                                    startTime = startTime,
+                                    endTime = endTime,
+                                    subject = "$subject (복사)",
+                                    color = color
+                                )
+                                onCopy(copiedSchedule)
+                            }) {
+                                Icon(Icons.Default.ContentCopy, contentDescription = "복사")
+                            }
+                        }
                     }
-                    Button(onClick = { val newSchedule = Schedule(id = schedule?.id ?: UUID.randomUUID().toString(), day = day, startTime = startTime, endTime = endTime, subject = subject, color = color); onSave(newSchedule) }, enabled = subject.isNotBlank() && isValidTimeRange(startTime, endTime)) { Icon(Icons.Default.Edit, contentDescription = "저장"); Spacer(modifier = Modifier.width(4.dp)); Text("저장") }
+                    
+                    Button(onClick = { val newSchedule = Schedule(id = schedule?.id ?: UUID.randomUUID().toString(), day = day, startTime = startTime, endTime = endTime, subject = subject, color = color); onSave(newSchedule) }, enabled = subject.isNotBlank() && isValidTimeRange(startTime, endTime), modifier = Modifier.weight(1f)) { 
+                        Text(if (isNewSchedule) "추가" else "저장") 
+                    }
                 }
             }
         }
